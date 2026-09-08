@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Police vs Thief Overlay</title>
+  <style>
+    body { background: transparent; color: white; font-family: Arial, sans-serif; }
+    #controls { position: fixed; left: 10px; bottom: 10px; }
+    button { margin: 4px; padding: 8px 12px; font-size: 14px; }
+    #status { margin-top: 8px; }
+    .broadcast { position: fixed; right: 10px; top: 10px; background: rgba(0,0,0,0.5); padding:8px; border-radius:6px; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <button id="joinPolice">加入警察</button>
+    <button id="joinThief">加入小偷</button>
+    <button id="useItem1">使用道具1</button>
+    <div id="status">未连接</div>
+  </div>
+  <div id="broadcastArea" class="broadcast" style="display:none;"></div>
+<script>
+const viewerId = 'v_' + Math.random().toString(36).substr(2,6);
+const name = '观众' + viewerId.slice(-3);
+const scheme = (location.protocol === 'https:') ? 'wss://' : 'ws://';
+const wsUrl = scheme + location.host;
+const ws = new WebSocket(wsUrl);
+
+ws.addEventListener('open', ()=> {
+  ws.send(JSON.stringify({ role:'overlay', viewerId, name }));
+  document.getElementById('status').innerText = '已连接，ID=' + viewerId;
+});
+
+ws.addEventListener('message', e => {
+  try {
+    const d = JSON.parse(e.data);
+    if (d.type === 'update') {
+      document.getElementById('status').innerText = `警察:${d.teams.police} 小偷:${d.teams.thief} 分数 P:${d.scores.police} T:${d.scores.thief}`;
+    } else if (d.type === 'broadcast') {
+      showBroadcast(d.msg);
+    } else if (d.type === 'state') {
+      // optional detailed state
+      document.getElementById('status').innerText = `警察:${d.teams.police} 小偷:${d.teams.thief}`;
+    }
+  } catch(err) { console.error(err); }
+});
+
+function showBroadcast(msg) {
+  const area = document.getElementById('broadcastArea');
+  area.style.display = 'block';
+  area.innerText = msg;
+  setTimeout(()=> area.style.display = 'none', 4000);
+}
+
+document.getElementById('joinPolice').onclick = () => ws.send(JSON.stringify({ type:'join', viewerId, name, team:'police' }));
+document.getElementById('joinThief').onclick = () => ws.send(JSON.stringify({ type:'join', viewerId, name, team:'thief' }));
+document.getElementById('useItem1').onclick = () => ws.send(JSON.stringify({ type:'useItem', viewerId, itemId:'smoke' }));
+
+</script>
+</body>
+</html>
